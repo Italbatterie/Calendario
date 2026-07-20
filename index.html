@@ -161,6 +161,12 @@
     box-shadow:inset 0 0 0 2px var(--today-ring);
     background:#fff5f5;
   }
+  td.day-cell.festivo{
+    border-left:3px solid var(--today-ring);
+  }
+  td.day-cell.festivo .day-num{
+    color:var(--today-ring);
+  }
   td.day-cell.open{
     background:#f3f4f6;
   }
@@ -410,6 +416,17 @@
     return rows;
   }
 
+  // Rimuove la voce "FESTIVO" da un elenco di nomi (non va mai mostrata come persona)
+  // e segnala se era presente.
+  function extractFestivo(list){
+    var found = false;
+    var cleaned = list.filter(function(x){
+      if(x.toUpperCase() === "FESTIVO"){ found = true; return false; }
+      return true;
+    });
+    return { list: cleaned, festivo: found };
+  }
+
   function buildByDay(rows, expectedMonth1){
     // expectedMonth1: mese atteso (1-12). Google, quando il "sheet" richiesto non
     // esiste, spesso NON dà errore ma restituisce silenziosamente i dati del foglio
@@ -428,11 +445,22 @@
       var mm = parseInt(m[2], 10);
       if(expectedMonth1 && mm !== expectedMonth1) continue;
       matchedAny = true;
+
+      // Domenica in colonna A = festivo per entrambi i calendari.
+      var isSunday = /^\s*domenica/i.test(r[0]);
+      // "FESTIVO" scritto in colonna B/C = festivo solo per quel calendario;
+      // la voce non va mai mostrata come nome nella cella.
+      var sanParsed = extractFestivo(splitList(r[1] || ""));
+      var paeseParsed = extractFestivo(splitList(r[2] || ""));
+
       byDay[day] = {
-        san: splitList(r[1] || ""),
-        paese: splitList(r[2] || ""),
+        san: sanParsed.list,
+        paese: paeseParsed.list,
         ferie: splitList(r[3] || ""),
-        note: (r[4] || "").trim()
+        note: (r[4] || "").trim(),
+        isSunday: isSunday,
+        sanFestivo: isSunday || sanParsed.festivo,
+        paeseFestivo: isSunday || paeseParsed.festivo
       };
     }
     return { byDay: byDay, matched: matchedAny, sawAnyDateRow: sawAnyDateRow };
@@ -681,12 +709,15 @@
         var entry = byDay[day];
         var personList = entry ? entry[personField] : [];
         var isTod = isToday(year, month, day);
+        var festivoField = personField === "san" ? "sanFestivo" : "paeseFestivo";
+        var isFestivo = !!(entry && entry[festivoField]);
         td.dataset.day = String(day);
 
         if(isTod){
           // Il dettaglio si apre già in automatico subito sotto: qui basta un
           // riquadro pulito con numero grande e il tag OGGI,
           // senza ripetere i nomi già visibili nel pannello aperto.
+          // (Se un giorno festivo cade oggi, il riquadro OGGI è già rosso di suo.)
           td.className = "day-cell today";
 
           var todayBox = document.createElement("div");
@@ -703,7 +734,7 @@
 
           appendFerieNoteTags(td, entry);
         } else {
-          td.className = "day-cell";
+          td.className = "day-cell" + (isFestivo ? " festivo" : "");
           var num = document.createElement("div");
           num.className = "day-num";
           var numSpan = document.createElement("span");
