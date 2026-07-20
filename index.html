@@ -142,10 +142,13 @@
     border-bottom:1px solid var(--line);
   }
   td.day-cell{
+    position:relative;
     vertical-align:top;
     border:1px solid var(--line);
-    padding:6px;
-    height:74px;
+    padding:6px 6px 22px 6px;
+    height:80px;
+    max-height:80px;
+    overflow:hidden;
     cursor:pointer;
     transition:background .15s;
   }
@@ -156,6 +159,7 @@
   }
   td.day-cell.today{
     box-shadow:inset 0 0 0 2px var(--today-ring);
+    background:#fff5f5;
   }
   td.day-cell.open{
     background:#f3f4f6;
@@ -168,37 +172,52 @@
     align-items:center;
     gap:5px;
   }
-  td.day-cell.today .day-num{color:var(--today-ring);}
+  .today-cell{
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    text-align:center;
+  }
+  .today-num{
+    font-size:32px;
+    font-weight:800;
+    line-height:1;
+    color:var(--today-ring);
+  }
   .today-badge{
     font-size:9px;
     background:var(--today-ring);
     color:#fff;
-    padding:1px 5px;
+    padding:1px 6px;
     border-radius:6px;
     font-weight:600;
+    letter-spacing:.03em;
   }
   .names{
     margin-top:4px;
     font-size:11px;
-    line-height:1.35;
+    line-height:1.3;
     color:var(--ink);
     word-wrap:break-word;
-  }
-  .tag-row{
-    margin-top:4px;
-    display:flex;
-    gap:3px;
-    flex-wrap:wrap;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
   }
   .tag{
+    position:absolute;
+    bottom:4px;
     font-size:9px;
     padding:1px 5px;
     border-radius:5px;
     font-weight:600;
     white-space:nowrap;
   }
-  .tag.ferie{background:var(--ferie-bg);color:var(--ferie-color);}
-  .tag.note{background:var(--note-bg);color:var(--note-color);}
+  .tag.ferie{left:4px; background:var(--ferie-bg);color:var(--ferie-color);}
+  .tag.note{right:4px; background:var(--note-bg);color:var(--note-color);}
   tr.detail-row td{
     padding:0;
     border:none;
@@ -249,6 +268,21 @@
     font-style:italic;
     font-size:12px;
   }
+  .month-placeholder{
+    padding:48px 24px;
+    text-align:center;
+  }
+  .month-placeholder strong{
+    display:block;
+    font-size:16px;
+    color:var(--ink);
+    margin-bottom:6px;
+  }
+  .month-placeholder span{
+    display:block;
+    font-size:13px;
+    color:var(--muted);
+  }
   footer{
     max-width:1200px;
     margin:24px auto 0;
@@ -285,6 +319,10 @@
       <h2>San Vendemiano</h2>
     </div>
     <table id="calSV"></table>
+    <div class="month-placeholder" id="placeholderSV" hidden>
+      <strong>Mese ancora non definito</strong>
+      <span>Il foglio per questo mese non è stato ancora compilato.</span>
+    </div>
   </section>
 
   <section class="cal-card">
@@ -293,6 +331,10 @@
       <h2>Paese</h2>
     </div>
     <table id="calPA"></table>
+    <div class="month-placeholder" id="placeholderPA" hidden>
+      <strong>Mese ancora non definito</strong>
+      <span>Il foglio per questo mese non è stato ancora compilato.</span>
+    </div>
   </section>
 </main>
 
@@ -319,6 +361,8 @@
   var errorBanner = document.getElementById("errorBanner");
   var tableSV = document.getElementById("calSV");
   var tablePA = document.getElementById("calPA");
+  var placeholderSV = document.getElementById("placeholderSV");
+  var placeholderPA = document.getElementById("placeholderPA");
 
   function sheetNameFor(year, month){
     return MONTHS_IT[month] + " " + year;
@@ -366,14 +410,24 @@
     return rows;
   }
 
-  function buildByDay(rows){
+  function buildByDay(rows, expectedMonth1){
+    // expectedMonth1: mese atteso (1-12). Google, quando il "sheet" richiesto non
+    // esiste, spesso NON dà errore ma restituisce silenziosamente i dati del foglio
+    // predefinito: per accorgercene confrontiamo il mese (mm) di ogni data trovata
+    // con quello atteso e ignoriamo le righe che non corrispondono.
     var byDay = {};
+    var matchedAny = false;
+    var sawAnyDateRow = false;
     for(var i=1; i<rows.length; i++){
       var r = rows[i];
       if(!r || !r[0]) continue;
       var m = r[0].match(/(\d{1,2})\/(\d{1,2})/);
       if(!m) continue;
+      sawAnyDateRow = true;
       var day = parseInt(m[1], 10);
+      var mm = parseInt(m[2], 10);
+      if(expectedMonth1 && mm !== expectedMonth1) continue;
+      matchedAny = true;
       byDay[day] = {
         san: splitList(r[1] || ""),
         paese: splitList(r[2] || ""),
@@ -381,7 +435,13 @@
         note: (r[4] || "").trim()
       };
     }
-    return byDay;
+    return { byDay: byDay, matched: matchedAny, sawAnyDateRow: sawAnyDateRow };
+  }
+
+  function makeMonthNotDefinedError(sheetName){
+    var err = new Error("Nessun foglio \"" + sheetName + "\" trovato: il mese non è ancora stato compilato.");
+    err.monthNotDefined = true;
+    return err;
   }
 
   function fetchMonthData(year, month, forceRefresh){
@@ -394,10 +454,12 @@
     // Il metodo JSONP (script tag) è il più affidabile: non è soggetto a CORS
     // ed è il meccanismo pensato da Google per leggere fogli pubblici da pagine esterne,
     // incluse pagine aperte come file locale (file://).
-    return fetchMonthDataJSONP(sheetName, forceRefresh)
+    return fetchMonthDataJSONP(sheetName, month, forceRefresh)
       .catch(function(jsonpErr){
+        if(jsonpErr && jsonpErr.monthNotDefined) throw jsonpErr;
         console.warn("JSONP non riuscito, provo con fetch CSV:", jsonpErr);
-        return fetchMonthDataCSV(sheetName, forceRefresh).catch(function(csvErr){
+        return fetchMonthDataCSV(sheetName, month, forceRefresh).catch(function(csvErr){
+          if(csvErr && csvErr.monthNotDefined) throw csvErr;
           console.error("Anche il fetch CSV è fallito:", csvErr);
           throw jsonpErr;
         });
@@ -408,7 +470,8 @@
       });
   }
 
-  function fetchMonthDataCSV(sheetName, forceRefresh){
+  function fetchMonthDataCSV(sheetName, month, forceRefresh){
+    var expectedMonth1 = month + 1;
     var url = "https://docs.google.com/spreadsheets/d/" + SHEET_ID +
       "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(sheetName) +
       (forceRefresh ? "&_=" + Date.now() : "");
@@ -420,15 +483,17 @@
       })
       .then(function(text){
         if(/^\s*</.test(text) || /<html/i.test(text)){
-          throw new Error("Foglio \"" + sheetName + "\" non trovato");
+          throw makeMonthNotDefinedError(sheetName);
         }
         var rows = parseCSV(text);
-        var byDay = buildByDay(rows);
-        return { byDay: byDay, sheetName: sheetName, fetchedAt: new Date() };
+        var built = buildByDay(rows, expectedMonth1);
+        if(!built.matched) throw makeMonthNotDefinedError(sheetName);
+        return { byDay: built.byDay, sheetName: sheetName, fetchedAt: new Date() };
       });
   }
 
-  function fetchMonthDataJSONP(sheetName, forceRefresh){
+  function fetchMonthDataJSONP(sheetName, month, forceRefresh){
+    var expectedMonth1 = month + 1;
     return new Promise(function(resolve, reject){
       var cbName = "gsCB_" + Math.random().toString(36).slice(2);
       var timeoutId = setTimeout(function(){
@@ -446,12 +511,11 @@
         cleanup();
         try{
           if(!resp || resp.status === "error"){
-            var msg = (resp && resp.errors && resp.errors[0] && resp.errors[0].detailed_message) || ("Foglio \"" + sheetName + "\" non trovato");
-            reject(new Error(msg));
+            reject(makeMonthNotDefinedError(sheetName));
             return;
           }
-          if(!resp.table || !resp.table.rows){
-            reject(new Error("Nessun dato nel foglio \"" + sheetName + "\""));
+          if(!resp.table || !resp.table.rows || !resp.table.rows.length){
+            reject(makeMonthNotDefinedError(sheetName));
             return;
           }
           var rows = [["DATA","SV","PAESE","FERIE","NOTE"]];
@@ -468,8 +532,12 @@
             });
             rows.push(vals);
           });
-          var byDay = buildByDay(rows);
-          resolve({ byDay: byDay, sheetName: sheetName, fetchedAt: new Date() });
+          var built = buildByDay(rows, expectedMonth1);
+          if(!built.matched){
+            reject(makeMonthNotDefinedError(sheetName));
+            return;
+          }
+          resolve({ byDay: built.byDay, sheetName: sheetName, fetchedAt: new Date() });
         } catch(e){
           reject(e);
         }
@@ -580,6 +648,23 @@
     return wrap;
   }
 
+  // Ferie sempre ancorato in basso a sinistra, Nota sempre in basso a destra
+  // (usata sia per le celle normali che per la cella "oggi").
+  function appendFerieNoteTags(td, entry){
+    if(entry && entry.ferie && entry.ferie.length){
+      var t1 = document.createElement("span");
+      t1.className = "tag ferie";
+      t1.textContent = "Ferie";
+      td.appendChild(t1);
+    }
+    if(entry && entry.note){
+      var t2 = document.createElement("span");
+      t2.className = "tag note";
+      t2.textContent = "Nota";
+      td.appendChild(t2);
+    }
+  }
+
   function renderCalendar(calKey, table, byDay, year, month, personField, personLabel, accentTagClass){
     var tbody = renderCalendarShell(table);
     var weeks = buildWeeks(year, month);
@@ -593,47 +678,48 @@
           tr.appendChild(td);
           return;
         }
-        td.className = "day-cell";
         var entry = byDay[day];
+        var personList = entry ? entry[personField] : [];
         var isTod = isToday(year, month, day);
-        if(isTod) td.className += " today";
+        td.dataset.day = String(day);
 
-        var num = document.createElement("div");
-        num.className = "day-num";
-        var numSpan = document.createElement("span");
-        numSpan.textContent = day;
-        num.appendChild(numSpan);
         if(isTod){
+          // Il dettaglio si apre già in automatico subito sotto: qui basta un
+          // riquadro pulito con numero grande e il tag OGGI,
+          // senza ripetere i nomi già visibili nel pannello aperto.
+          td.className = "day-cell today";
+
+          var todayBox = document.createElement("div");
+          todayBox.className = "today-cell";
+          var bignum = document.createElement("div");
+          bignum.className = "today-num";
+          bignum.textContent = day;
           var badge = document.createElement("span");
           badge.className = "today-badge";
           badge.textContent = "OGGI";
-          num.appendChild(badge);
-        }
-        td.appendChild(num);
+          todayBox.appendChild(bignum);
+          todayBox.appendChild(badge);
+          td.appendChild(todayBox);
 
-        var personList = entry ? entry[personField] : [];
-        if(personList && personList.length){
-          var names = document.createElement("div");
-          names.className = "names";
-          names.textContent = personList.join(", ");
-          td.appendChild(names);
-        }
+          appendFerieNoteTags(td, entry);
+        } else {
+          td.className = "day-cell";
+          var num = document.createElement("div");
+          num.className = "day-num";
+          var numSpan = document.createElement("span");
+          numSpan.textContent = day;
+          num.appendChild(numSpan);
+          td.appendChild(num);
 
-        var tagRow = document.createElement("div");
-        tagRow.className = "tag-row";
-        if(entry && entry.ferie && entry.ferie.length){
-          var t1 = document.createElement("span");
-          t1.className = "tag ferie";
-          t1.textContent = "Ferie";
-          tagRow.appendChild(t1);
+          if(personList && personList.length){
+            var names = document.createElement("div");
+            names.className = "names";
+            names.textContent = personList.join(", ");
+            td.appendChild(names);
+          }
+
+          appendFerieNoteTags(td, entry);
         }
-        if(entry && entry.note){
-          var t2 = document.createElement("span");
-          t2.className = "tag note";
-          t2.textContent = "Nota";
-          tagRow.appendChild(t2);
-        }
-        if(tagRow.children.length) td.appendChild(tagRow);
 
         td.addEventListener("click", function(y, mo, d, ent, pList){
           return function(){ toggleDay(calKey, tbody, y, mo, d, ent, pList, personLabel); };
@@ -664,16 +750,8 @@
 
     openDay[calKey] = day;
     var table = document.getElementById("cal" + calKey);
-    var cells = table.querySelectorAll("td.day-cell");
-    var targetCell = null;
+    var targetCell = table.querySelector('td.day-cell[data-day="' + day + '"]');
     var targetRow = null;
-    cells.forEach(function(c){
-      var num = c.querySelector(".day-num span");
-      if(num && parseInt(num.textContent, 10) === day && !c.classList.contains("empty")){
-        // ensure it's within the correct week (only one match per month normally)
-        targetCell = c;
-      }
-    });
     if(!targetCell) return;
     targetCell.classList.add("open");
     targetRow = targetCell.parentElement;
@@ -709,10 +787,18 @@
     errorBanner.innerHTML = "";
   }
 
+  function showMonthPlaceholder(show){
+    placeholderSV.hidden = !show;
+    placeholderPA.hidden = !show;
+    tableSV.hidden = show;
+    tablePA.hidden = show;
+  }
+
   function refresh(forceRefresh){
     monthLabel.textContent = MONTHS_IT[view.month] + " " + view.year;
     setStatus("Caricamento dati…");
     hideErrorBanner();
+    showMonthPlaceholder(false);
     openDay.SV = null;
     openDay.PA = null;
 
@@ -733,10 +819,20 @@
         setStatus("Aggiornato dal foglio \"" + result.sheetName + "\" alle " + result.fetchedAt.toLocaleTimeString("it-IT"));
       })
       .catch(function(err){
+        var sheetName = sheetNameFor(view.year, view.month);
+
+        if(err && err.monthNotDefined){
+          // Il foglio per questo mese non esiste ancora (o Google è ricaduto sul
+          // foglio predefinito): niente calendario fasullo, solo un avviso chiaro.
+          console.warn("Mese non ancora definito:", err.message);
+          showMonthPlaceholder(true);
+          setStatus("Foglio \"" + sheetName + "\" non ancora creato");
+          return;
+        }
+
         console.error("Errore caricamento dati:", err);
         renderCalendar("SV", tableSV, {}, view.year, view.month, "san", "San Vendemiano");
         renderCalendar("PA", tablePA, {}, view.year, view.month, "paese", "Paese");
-        var sheetName = sheetNameFor(view.year, view.month);
         setStatus("Errore nel caricamento del foglio \"" + sheetName + "\"", true);
         showErrorBanner(sheetName, err);
       });
