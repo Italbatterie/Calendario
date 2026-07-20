@@ -319,6 +319,20 @@
     letter-spacing:.03em;
     margin-bottom:2px;
   }
+  .detail-field .label.label-ferie{
+    display:inline-block;
+    color:var(--ferie-color);
+    background:var(--ferie-bg);
+    padding:2px 7px;
+    border-radius:5px;
+  }
+  .detail-field .label.label-note{
+    display:inline-block;
+    color:var(--note-color);
+    background:var(--note-bg);
+    padding:2px 7px;
+    border-radius:5px;
+  }
   .chip-list{
     display:flex;
     flex-wrap:wrap;
@@ -734,7 +748,7 @@
     wrap.className = "detail-field";
     if(!hideLabel){
       var l = document.createElement("span");
-      l.className = "label";
+      l.className = "label" + (cls ? " label-" + cls : "");
       l.textContent = label;
       wrap.appendChild(l);
     }
