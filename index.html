@@ -457,7 +457,14 @@
           var rows = [["DATA","SV","PAESE","FERIE","NOTE"]];
           resp.table.rows.forEach(function(r){
             var vals = (r.c || []).map(function(cell){
-              return cell && cell.v != null ? String(cell.v) : "";
+              if(!cell) return "";
+              // Preferisci il valore formattato (f): per le celle di tipo data/numero
+              // Google restituisce in "v" un valore grezzo (es. oggetto Date) che non
+              // corrisponde al testo visualizzato in cella ("lunedì 20/07"); "f" invece
+              // è sempre il testo così come appare nel foglio, coerente con l'export CSV.
+              if(cell.f != null) return String(cell.f);
+              if(cell.v != null) return String(cell.v);
+              return "";
             });
             rows.push(vals);
           });
