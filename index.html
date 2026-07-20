@@ -20,6 +20,8 @@
     --bg:#f9fafb;
     --card:#ffffff;
     --today-ring:#dc2626;
+    --brand-navy:#292b74;
+    --brand-yellow:#f3ca15;
   }
   *{box-sizing:border-box;}
   body{
@@ -27,6 +29,20 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--bg);
     color:var(--ink);
+  }
+  .brand-bar{
+    width:100%;
+    background:var(--brand-navy);
+    padding:14px 24px;
+    display:flex;
+    align-items:center;
+  }
+  .brand-bar img{
+    height:40px;
+    width:auto;
+    display:block;
+  }
+  .page-content{
     padding:24px;
   }
   header{
@@ -116,7 +132,13 @@
   }
   .cal-head{
     padding:14px 16px;
-    border-bottom:1px solid var(--line);
+    background:var(--brand-yellow);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .cal-head-title{
     display:flex;
     align-items:center;
     gap:8px;
@@ -125,8 +147,16 @@
     width:10px;height:10px;border-radius:50%;
   }
   .cal-head h2{
-    font-size:15px;
+    font-size:19px;
+    font-weight:700;
     margin:0;
+    color:#000;
+  }
+  .cal-head img.cal-logo{
+    height:32px;
+    width:auto;
+    display:block;
+    margin-left:auto;
   }
   table{
     width:100%;
@@ -300,6 +330,12 @@
 </head>
 <body>
 
+<div class="brand-bar">
+  <img src="italbatterie-logo.png" alt="Italbatterie">
+</div>
+
+<div class="page-content">
+
 <header>
   <h1>Calendario Lavoro</h1>
   <p class="subtitle">Dati letti in tempo reale da Google Sheets — un foglio per ogni mese.</p>
@@ -321,8 +357,11 @@
 <main>
   <section class="cal-card">
     <div class="cal-head">
-      <span class="dot" style="background:var(--sv-color)"></span>
-      <h2>San Vendemiano</h2>
+      <div class="cal-head-title">
+        <span class="dot" style="background:var(--sv-color)"></span>
+        <h2>San Vendemiano</h2>
+      </div>
+      <img class="cal-logo" src="logo-san-vendemiano.png" alt="San Vendemiano">
     </div>
     <table id="calSV"></table>
     <div class="month-placeholder" id="placeholderSV" hidden>
@@ -333,8 +372,11 @@
 
   <section class="cal-card">
     <div class="cal-head">
-      <span class="dot" style="background:var(--pa-color)"></span>
-      <h2>Paese</h2>
+      <div class="cal-head-title">
+        <span class="dot" style="background:var(--pa-color)"></span>
+        <h2>Paese</h2>
+      </div>
+      <img class="cal-logo" src="logo-paese.png" alt="Paese">
     </div>
     <table id="calPA"></table>
     <div class="month-placeholder" id="placeholderPA" hidden>
@@ -347,6 +389,8 @@
 <footer>
   Foglio: <strong>Calendario Lavoro</strong> · nomi foglio attesi nel formato "Mese Anno" (es. "Luglio 2026")
 </footer>
+
+</div>
 
 <script>
 (function(){
