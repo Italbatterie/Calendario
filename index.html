@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendario Lavoro — San Vendemiano &amp; Paese</title>
+<style>
+  :root{
+    --sv-color:#2563eb;
+    --sv-bg:#eff6ff;
+    --pa-color:#059669;
+    --pa-bg:#ecfdf5;
+    --ferie-color:#d97706;
+    --ferie-bg:#fffbeb;
+    --note-color:#7c3aed;
+    --note-bg:#f5f3ff;
+    --ink:#1f2937;
+    --muted:#6b7280;
+    --line:#e5e7eb;
+    --bg:#f9fafb;
+    --card:#ffffff;
+    --today-ring:#dc2626;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    padding:24px;
+  }
+  header{
+    max-width:1200px;
+    margin:0 auto 20px;
+  }
+  h1{
+    font-size:22px;
+    margin:0 0 4px;
+  }
+  .subtitle{
+    color:var(--muted);
+    font-size:14px;
+    margin:0 0 18px;
+  }
+  .toolbar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px 16px;
+  }
+  .nav-group{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  button{
+    font:inherit;
+    cursor:pointer;
+    border:1px solid var(--line);
+    background:#fff;
+    border-radius:8px;
+    padding:7px 12px;
+    color:var(--ink);
+    transition:background .15s;
+  }
+  button:hover{background:#f3f4f6;}
+  button.primary{
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+  button.primary:hover{opacity:.85;}
+  .month-label{
+    font-weight:600;
+    font-size:16px;
+    min-width:150px;
+    text-align:center;
+  }
+  .spacer{flex:1;}
+  .status{
+    font-size:12px;
+    color:var(--muted);
+  }
+  .status.error{color:#dc2626;}
+  .error-banner{
+    max-width:1200px;
+    margin:12px auto 0;
+    background:#fef2f2;
+    border:1px solid #fecaca;
+    color:#991b1b;
+    border-radius:10px;
+    padding:12px 16px;
+    font-size:13px;
+    line-height:1.5;
+  }
+  .error-banner strong{display:block; margin-bottom:2px;}
+  main{
+    max-width:1200px;
+    margin:20px auto 0;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+  }
+  @media (max-width:900px){
+    main{grid-template-columns:1fr;}
+  }
+  .cal-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+  }
+  .cal-head{
+    padding:14px 16px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .dot{
+    width:10px;height:10px;border-radius:50%;
+  }
+  .cal-head h2{
+    font-size:15px;
+    margin:0;
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    table-layout:fixed;
+  }
+  th{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--muted);
+    padding:8px 4px;
+    border-bottom:1px solid var(--line);
+  }
+  td.day-cell{
+    vertical-align:top;
+    border:1px solid var(--line);
+    padding:6px;
+    height:74px;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  td.day-cell:hover{background:#f9fafb;}
+  td.day-cell.empty{
+    cursor:default;
+    background:#fcfcfd;
+  }
+  td.day-cell.today{
+    box-shadow:inset 0 0 0 2px var(--today-ring);
+  }
+  td.day-cell.open{
+    background:#f3f4f6;
+  }
+  .day-num{
+    font-size:12px;
+    font-weight:600;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    gap:5px;
+  }
+  td.day-cell.today .day-num{color:var(--today-ring);}
+  .today-badge{
+    font-size:9px;
+    background:var(--today-ring);
+    color:#fff;
+    padding:1px 5px;
+    border-radius:6px;
+    font-weight:600;
+  }
+  .names{
+    margin-top:4px;
+    font-size:11px;
+    line-height:1.35;
+    color:var(--ink);
+    word-wrap:break-word;
+  }
+  .tag-row{
+    margin-top:4px;
+    display:flex;
+    gap:3px;
+    flex-wrap:wrap;
+  }
+  .tag{
+    font-size:9px;
+    padding:1px 5px;
+    border-radius:5px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .tag.ferie{background:var(--ferie-bg);color:var(--ferie-color);}
+  .tag.note{background:var(--note-bg);color:var(--note-color);}
+  tr.detail-row td{
+    padding:0;
+    border:none;
+    background:transparent;
+  }
+  .detail-content{
+    padding:14px 16px;
+    border-bottom:1px solid var(--line);
+    background:#fafafa;
+    animation:open .15s ease-out;
+  }
+  @keyframes open{
+    from{opacity:0; transform:translateY(-4px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .detail-content .detail-date{
+    font-weight:700;
+    font-size:13px;
+    margin-bottom:8px;
+  }
+  .detail-field{
+    margin-bottom:6px;
+    font-size:13px;
+  }
+  .detail-field .label{
+    font-weight:600;
+    color:var(--muted);
+    display:block;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    margin-bottom:2px;
+  }
+  .chip-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+  }
+  .chip{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:3px 10px;
+    font-size:12px;
+  }
+  .empty-note{
+    color:var(--muted);
+    font-style:italic;
+    font-size:12px;
+  }
+  footer{
+    max-width:1200px;
+    margin:24px auto 0;
+    color:var(--muted);
+    font-size:12px;
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Calendario Lavoro</h1>
+  <p class="subtitle">Dati letti in tempo reale da Google Sheets — un foglio per ogni mese.</p>
+  <div class="toolbar">
+    <div class="nav-group">
+      <button id="prevBtn" title="Mese precedente">←</button>
+      <div class="month-label" id="monthLabel">—</div>
+      <button id="nextBtn" title="Mese successivo">→</button>
+    </div>
+    <button id="todayBtn">Oggi</button>
+    <div class="spacer"></div>
+    <span class="status" id="statusLabel">Caricamento…</span>
+    <button id="refreshBtn">Aggiorna dati</button>
+  </div>
+</header>
+
+<div class="error-banner" id="errorBanner" hidden></div>
+
+<main>
+  <section class="cal-card">
+    <div class="cal-head">
+      <span class="dot" style="background:var(--sv-color)"></span>
+      <h2>San Vendemiano</h2>
+    </div>
+    <table id="calSV"></table>
+  </section>
+
+  <section class="cal-card">
+    <div class="cal-head">
+      <span class="dot" style="background:var(--pa-color)"></span>
+      <h2>Paese</h2>
+    </div>
+    <table id="calPA"></table>
+  </section>
+</main>
+
+<footer>
+  Foglio: <strong>Calendario Lavoro</strong> · nomi foglio attesi nel formato "Mese Anno" (es. "Luglio 2026")
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var SHEET_ID = "1pYklWYxKvMopogRrxnhZm85LXTyUbaWxuCS2gmKg14w";
+  var MONTHS_IT = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+  var WEEKDAYS_IT = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+
+  var today = new Date();
+  var view = { year: today.getFullYear(), month: today.getMonth() }; // month: 0-11
+
+  var dataCache = {}; // key "YYYY-M" -> { byDay: {1: {san:[], paese:[], ferie:[], note:""}}, }
+  var openDay = { SV: null, PA: null };
+
+  var monthLabel = document.getElementById("monthLabel");
+  var statusLabel = document.getElementById("statusLabel");
+  var errorBanner = document.getElementById("errorBanner");
+  var tableSV = document.getElementById("calSV");
+  var tablePA = document.getElementById("calPA");
+
+  function sheetNameFor(year, month){
+    return MONTHS_IT[month] + " " + year;
+  }
+
+  function cacheKey(year, month){ return year + "-" + month; }
+
+  function splitList(text){
+    if(!text) return [];
+    return text
+      .split(",")
+      .reduce(function(acc, part){
+        part.split(/\s+e\s+/i).forEach(function(p){
+          var t = p.trim();
+          if(t) acc.push(t);
+        });
+        return acc;
+      }, []);
+  }
+
+  // ---- CSV parsing ----
+  function parseCSV(text){
+    var rows = [];
+    var row = [];
+    var field = "";
+    var inQuotes = false;
+    for(var i=0; i<text.length; i++){
+      var c = text[i];
+      if(inQuotes){
+        if(c === '"'){
+          if(text[i+1] === '"'){ field += '"'; i++; }
+          else { inQuotes = false; }
+        } else {
+          field += c;
+        }
+      } else {
+        if(c === '"'){ inQuotes = true; }
+        else if(c === ','){ row.push(field); field = ""; }
+        else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ""; }
+        else if(c === '\r'){ /* skip */ }
+        else { field += c; }
+      }
+    }
+    if(field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function buildByDay(rows){
+    var byDay = {};
+    for(var i=1; i<rows.length; i++){
+      var r = rows[i];
+      if(!r || !r[0]) continue;
+      var m = r[0].match(/(\d{1,2})\/(\d{1,2})/);
+      if(!m) continue;
+      var day = parseInt(m[1], 10);
+      byDay[day] = {
+        san: splitList(r[1] || ""),
+        paese: splitList(r[2] || ""),
+        ferie: splitList(r[3] || ""),
+        note: (r[4] || "").trim()
+      };
+    }
+    return byDay;
+  }
+
+  function fetchMonthData(year, month, forceRefresh){
+    var key = cacheKey(year, month);
+    if(dataCache[key] && !forceRefresh){
+      return Promise.resolve(dataCache[key]);
+    }
+    var sheetName = sheetNameFor(year, month);
+
+    // Il metodo JSONP (script tag) è il più affidabile: non è soggetto a CORS
+    // ed è il meccanismo pensato da Google per leggere fogli pubblici da pagine esterne,
+    // incluse pagine aperte come file locale (file://).
+    return fetchMonthDataJSONP(sheetName, forceRefresh)
+      .catch(function(jsonpErr){
+        console.warn("JSONP non riuscito, provo con fetch CSV:", jsonpErr);
+        return fetchMonthDataCSV(sheetName, forceRefresh).catch(function(csvErr){
+          console.error("Anche il fetch CSV è fallito:", csvErr);
+          throw jsonpErr;
+        });
+      })
+      .then(function(result){
+        dataCache[key] = result;
+        return result;
+      });
+  }
+
+  function fetchMonthDataCSV(sheetName, forceRefresh){
+    var url = "https://docs.google.com/spreadsheets/d/" + SHEET_ID +
+      "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(sheetName) +
+      (forceRefresh ? "&_=" + Date.now() : "");
+
+    return fetch(url, { cache: "no-store" })
+      .then(function(res){
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        return res.text();
+      })
+      .then(function(text){
+        if(/^\s*</.test(text) || /<html/i.test(text)){
+          throw new Error("Foglio \"" + sheetName + "\" non trovato");
+        }
+        var rows = parseCSV(text);
+        var byDay = buildByDay(rows);
+        return { byDay: byDay, sheetName: sheetName, fetchedAt: new Date() };
+      });
+  }
+
+  function fetchMonthDataJSONP(sheetName, forceRefresh){
+    return new Promise(function(resolve, reject){
+      var cbName = "gsCB_" + Math.random().toString(36).slice(2);
+      var timeoutId = setTimeout(function(){
+        cleanup();
+        reject(new Error("Timeout nel caricamento del foglio \"" + sheetName + "\""));
+      }, 10000);
+
+      function cleanup(){
+        clearTimeout(timeoutId);
+        delete window[cbName];
+        if(script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      window[cbName] = function(resp){
+        cleanup();
+        try{
+          if(!resp || resp.status === "error"){
+            var msg = (resp && resp.errors && resp.errors[0] && resp.errors[0].detailed_message) || ("Foglio \"" + sheetName + "\" non trovato");
+            reject(new Error(msg));
+            return;
+          }
+          if(!resp.table || !resp.table.rows){
+            reject(new Error("Nessun dato nel foglio \"" + sheetName + "\""));
+            return;
+          }
+          var rows = [["DATA","SV","PAESE","FERIE","NOTE"]];
+          resp.table.rows.forEach(function(r){
+            var vals = (r.c || []).map(function(cell){
+              return cell && cell.v != null ? String(cell.v) : "";
+            });
+            rows.push(vals);
+          });
+          var byDay = buildByDay(rows);
+          resolve({ byDay: byDay, sheetName: sheetName, fetchedAt: new Date() });
+        } catch(e){
+          reject(e);
+        }
+      };
+
+      var url = "https://docs.google.com/spreadsheets/d/" + SHEET_ID +
+        "/gviz/tq?sheet=" + encodeURIComponent(sheetName) +
+        "&tqx=" + encodeURIComponent("responseHandler:" + cbName) +
+        (forceRefresh ? "&_=" + Date.now() : "");
+      var script = document.createElement("script");
+      script.src = url;
+      script.onerror = function(){
+        cleanup();
+        reject(new Error("Errore di rete nel caricamento di \"" + sheetName + "\""));
+      };
+      document.body.appendChild(script);
+    });
+  }
+
+  // ---- Rendering ----
+  function isToday(y, m, d){
+    return y === today.getFullYear() && m === today.getMonth() && d === today.getDate();
+  }
+
+  function renderCalendarShell(table){
+    table.innerHTML = "";
+    var thead = document.createElement("thead");
+    var trh = document.createElement("tr");
+    WEEKDAYS_IT.forEach(function(w){
+      var th = document.createElement("th");
+      th.textContent = w;
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    table.appendChild(thead);
+    var tbody = document.createElement("tbody");
+    table.appendChild(tbody);
+    return tbody;
+  }
+
+  function buildWeeks(year, month){
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Monday=0
+    var weeks = [];
+    var current = [];
+    for(var i=0; i<firstDow; i++) current.push(null);
+    for(var d=1; d<=daysInMonth; d++){
+      current.push(d);
+      if(current.length === 7){ weeks.push(current); current = []; }
+    }
+    if(current.length){
+      while(current.length < 7) current.push(null);
+      weeks.push(current);
+    }
+    return weeks;
+  }
+
+  function fieldLabel(text, label, cls, hideLabel){
+    var wrap = document.createElement("div");
+    wrap.className = "detail-field";
+    if(!hideLabel){
+      var l = document.createElement("span");
+      l.className = "label";
+      l.textContent = label;
+      wrap.appendChild(l);
+    }
+    if(Array.isArray(text)){
+      if(text.length === 0){
+        var e = document.createElement("span");
+        e.className = "empty-note";
+        e.textContent = "—";
+        wrap.appendChild(e);
+      } else {
+        var chipList = document.createElement("div");
+        chipList.className = "chip-list";
+        text.forEach(function(t){
+          var chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = t;
+          chipList.appendChild(chip);
+        });
+        wrap.appendChild(chipList);
+      }
+    } else {
+      var span = document.createElement("span");
+      if(!text){
+        span.className = "empty-note";
+        span.textContent = "—";
+      } else {
+        span.textContent = text;
+      }
+      wrap.appendChild(span);
+    }
+    return wrap;
+  }
+
+  function buildDetailContent(year, month, day, entry, personLabel, personList){
+    var wrap = document.createElement("div");
+    wrap.className = "detail-content";
+    var dateStr = document.createElement("div");
+    dateStr.className = "detail-date";
+    var dObj = new Date(year, month, day);
+    dateStr.textContent = dObj.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    wrap.appendChild(dateStr);
+    wrap.appendChild(fieldLabel(personList, personLabel, "person", true));
+    wrap.appendChild(fieldLabel(entry ? entry.ferie : [], "Ferie", "ferie"));
+    wrap.appendChild(fieldLabel(entry ? entry.note : "", "Note", "note"));
+    return wrap;
+  }
+
+  function renderCalendar(calKey, table, byDay, year, month, personField, personLabel, accentTagClass){
+    var tbody = renderCalendarShell(table);
+    var weeks = buildWeeks(year, month);
+
+    weeks.forEach(function(week){
+      var tr = document.createElement("tr");
+      week.forEach(function(day){
+        var td = document.createElement("td");
+        if(day === null){
+          td.className = "day-cell empty";
+          tr.appendChild(td);
+          return;
+        }
+        td.className = "day-cell";
+        var entry = byDay[day];
+        var isTod = isToday(year, month, day);
+        if(isTod) td.className += " today";
+
+        var num = document.createElement("div");
+        num.className = "day-num";
+        var numSpan = document.createElement("span");
+        numSpan.textContent = day;
+        num.appendChild(numSpan);
+        if(isTod){
+          var badge = document.createElement("span");
+          badge.className = "today-badge";
+          badge.textContent = "OGGI";
+          num.appendChild(badge);
+        }
+        td.appendChild(num);
+
+        var personList = entry ? entry[personField] : [];
+        if(personList && personList.length){
+          var names = document.createElement("div");
+          names.className = "names";
+          names.textContent = personList.join(", ");
+          td.appendChild(names);
+        }
+
+        var tagRow = document.createElement("div");
+        tagRow.className = "tag-row";
+        if(entry && entry.ferie && entry.ferie.length){
+          var t1 = document.createElement("span");
+          t1.className = "tag ferie";
+          t1.textContent = "Ferie";
+          tagRow.appendChild(t1);
+        }
+        if(entry && entry.note){
+          var t2 = document.createElement("span");
+          t2.className = "tag note";
+          t2.textContent = "Nota";
+          tagRow.appendChild(t2);
+        }
+        if(tagRow.children.length) td.appendChild(tagRow);
+
+        td.addEventListener("click", function(y, mo, d, ent, pList){
+          return function(){ toggleDay(calKey, tbody, y, mo, d, ent, pList, personLabel); };
+        }(year, month, day, entry, personList));
+
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+      tr.dataset.week = "true";
+    });
+
+    return tbody;
+  }
+
+  function closeOpenDetail(calKey, tbody){
+    var existing = tbody.querySelector("tr.detail-row");
+    if(existing) existing.parentNode.removeChild(existing);
+    document.querySelectorAll("#cal" + calKey + " td.day-cell.open").forEach(function(el){
+      el.classList.remove("open");
+    });
+    openDay[calKey] = null;
+  }
+
+  function toggleDay(calKey, tbody, year, month, day, entry, personList, personLabel){
+    var wasOpen = openDay[calKey] === day;
+    closeOpenDetail(calKey, tbody);
+    if(wasOpen) return;
+
+    openDay[calKey] = day;
+    var table = document.getElementById("cal" + calKey);
+    var cells = table.querySelectorAll("td.day-cell");
+    var targetCell = null;
+    var targetRow = null;
+    cells.forEach(function(c){
+      var num = c.querySelector(".day-num span");
+      if(num && parseInt(num.textContent, 10) === day && !c.classList.contains("empty")){
+        // ensure it's within the correct week (only one match per month normally)
+        targetCell = c;
+      }
+    });
+    if(!targetCell) return;
+    targetCell.classList.add("open");
+    targetRow = targetCell.parentElement;
+
+    var detailTr = document.createElement("tr");
+    detailTr.className = "detail-row";
+    var td = document.createElement("td");
+    td.colSpan = 7;
+    td.appendChild(buildDetailContent(year, month, day, entry, personLabel, personList));
+    detailTr.appendChild(td);
+    targetRow.parentNode.insertBefore(detailTr, targetRow.nextSibling);
+  }
+
+  function setStatus(msg, isError){
+    statusLabel.textContent = msg;
+    statusLabel.className = "status" + (isError ? " error" : "");
+  }
+
+  function showErrorBanner(sheetName, err){
+    errorBanner.hidden = false;
+    errorBanner.innerHTML = "";
+    var strong = document.createElement("strong");
+    strong.textContent = "Impossibile caricare i dati dal foglio \"" + sheetName + "\"";
+    var detail = document.createElement("span");
+    detail.textContent = (err && err.message ? err.message : "Errore sconosciuto") +
+      ". Verifica che il foglio Google Sheets sia condiviso come \"Chiunque abbia il link\" (visualizzatore) e che esista un foglio chiamato esattamente \"" + sheetName + "\".";
+    errorBanner.appendChild(strong);
+    errorBanner.appendChild(detail);
+  }
+
+  function hideErrorBanner(){
+    errorBanner.hidden = true;
+    errorBanner.innerHTML = "";
+  }
+
+  function refresh(forceRefresh){
+    monthLabel.textContent = MONTHS_IT[view.month] + " " + view.year;
+    setStatus("Caricamento dati…");
+    hideErrorBanner();
+    openDay.SV = null;
+    openDay.PA = null;
+
+    fetchMonthData(view.year, view.month, forceRefresh)
+      .then(function(result){
+        renderCalendar("SV", tableSV, result.byDay, view.year, view.month, "san", "San Vendemiano");
+        renderCalendar("PA", tablePA, result.byDay, view.year, view.month, "paese", "Paese");
+
+        // auto-apri il giorno di oggi se stiamo guardando il mese corrente
+        if(view.year === today.getFullYear() && view.month === today.getMonth()){
+          var todayEntry = result.byDay[today.getDate()];
+          var tbodySV = tableSV.querySelector("tbody");
+          var tbodyPA = tablePA.querySelector("tbody");
+          toggleDay("SV", tbodySV, view.year, view.month, today.getDate(), todayEntry, todayEntry ? todayEntry.san : [], "San Vendemiano");
+          toggleDay("PA", tbodyPA, view.year, view.month, today.getDate(), todayEntry, todayEntry ? todayEntry.paese : [], "Paese");
+        }
+
+        setStatus("Aggiornato dal foglio \"" + result.sheetName + "\" alle " + result.fetchedAt.toLocaleTimeString("it-IT"));
+      })
+      .catch(function(err){
+        console.error("Errore caricamento dati:", err);
+        renderCalendar("SV", tableSV, {}, view.year, view.month, "san", "San Vendemiano");
+        renderCalendar("PA", tablePA, {}, view.year, view.month, "paese", "Paese");
+        var sheetName = sheetNameFor(view.year, view.month);
+        setStatus("Errore nel caricamento del foglio \"" + sheetName + "\"", true);
+        showErrorBanner(sheetName, err);
+      });
+  }
+
+  document.getElementById("prevBtn").addEventListener("click", function(){
+    view.month--;
+    if(view.month < 0){ view.month = 11; view.year--; }
+    refresh(false);
+  });
+  document.getElementById("nextBtn").addEventListener("click", function(){
+    view.month++;
+    if(view.month > 11){ view.month = 0; view.year++; }
+    refresh(false);
+  });
+  document.getElementById("todayBtn").addEventListener("click", function(){
+    view.year = today.getFullYear();
+    view.month = today.getMonth();
+    refresh(false);
+  });
+  document.getElementById("refreshBtn").addEventListener("click", function(){
+    refresh(true);
+  });
+
+  refresh(false);
+})();
+</script>
+
+</body>
+</html>
